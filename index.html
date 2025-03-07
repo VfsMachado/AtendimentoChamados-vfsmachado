@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preenchimento de Chamado</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #8BC53D;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+      color: black;
+    }
+    form {
+      max-width: 600px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    label {
+      display: block;
+      margin: 10px 0 5px;
+      font-weight: bold;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    input:disabled {
+      background-color: #f5f5f5;
+      border-color: #ddd;
+    }
+    button {
+      padding: 10px 15px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 5px;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    #template, #saved-templates {
+      margin-top: 20px;
+      padding: 15px;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    #saved-templates ul {
+      list-style: none;
+      padding: 0;
+    }
+    #saved-templates li {
+      padding: 10px;
+      margin: 5px 0;
+      background: #f8f9fa;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .footer {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      font-size: 12px;
+      background-color: rgba(255, 255, 255, 0.8);
+      padding: 5px 10px;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      color: #333;
+    }
+    
+    .notification {
+      background-color: #f44336; 
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      text-align: center;
+      display: none;
+      position: fixed;
+      top: 20px;  
+      left: 50%;
+      transform: translateX(-50%); 
+      width: 80%; 
+      z-index: 1000; 
+    }
+  </style>
+</head>
+<body>
+  <header style="text-align: center; margin-bottom: 20px;">
+    <img src="https://cdn.glitch.global/2274c781-ff48-4d88-b485-b7d31faf2a30/download.png?1737529360732" alt="Logo da Empresa" style="max-width: 200px; height: auto; margin: 0 auto; display: block; border-radius: 8px;">
+    <h1>Preenchimento de Chamado</h1>
+  </header>
+  
+  <form id="form">
+    <label for="nome">Nome de quem entrou em contato:</label>
+    <input type="text" id="nome" required oninput="showNextField('cpf')">
+    <label for="cpf" id="cpf-label" style="display: none;">Cnpj/cpf da empresa:</label>
+    <input type="text" id="cpf" style="display: none;" pattern="/(^\d{3}\.\d{3}\.\d{3}\-\d{2}$)|(^\d{2}\.\d{3}\.\d{3}\/\d{4}\-\d{2}$)/" title="Digite um CPF válido no formato xxx.xxx.xxx-xx" required oninput="showNextField('numero')">
+    <label for="numero" style="display: none;">Cliente/Nº do chamado:</label>
+    <input type="text" id="numero" style="display: none;" required oninput="showNextField('fantasia')">
+    <label for="fantasia" style="display: none;">Nome Fantasia:</label>
+    <input type="text" id="fantasia" style="display: none;" required oninput="showNextField('contato')">
+    <label for="contato" style="display: none;">Contato:</label>
+    <input type="text" id="contato" style="display: none;" required oninput="showNextField('endereco')">
+    <label for="endereco" style="display: none;">Endereço:</label>
+    <input type="text" id="endereco" style="display: none;" required oninput="showNextField('descricao')">
+    <label for="descricao" style="display: none;">Descrição do chamado:</label>
+    <input type="text" id="descricao" style="display: none;" required oninput="showNextField('datahora')">
+    <label for="datahora" style="display: none;">Data e hora do evento:</label>
+    <input type="datetime-local" id="datahora" style="display: none;" required oninput="showNextField('designacao')">
+    <label for="designacao" style="display: none;">Designação:</label>
+    <input type="text" id="designacao" style="display: none;" required oninput="showNextField('ip')">
+    <label for="ip" style="display: none;">IP:</label>
+    <input type="text" id="ip" style="display: none;" required pattern="^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$" title="Digite um IP válido, no formato 192.168.0.1" oninput="showNextField('pop')">
+    <label for="pop" style="display: none;">POP/Equipamento/Porta:</label>
+    <input type="text" id="pop" style="display: none;" required>
+  <button type="submit">Gerar Template</button>
+  <button type="button" onclick="resetForm()">Limpar</button>
+  </form>
+
+  <div id="template" style="display:none;"></div>
+
+  <div id="saved-templates" style="display:none;">
+    <h3>Lista Diaria</h3>
+    <ul id="template-list"></ul>
+  </div>
+
+  <div class="notification" id="duplicateNotification">Este chamado já foi registrado. Por favor, revise as informações!</div>
+
+  <script>
+    const savedTemplates = [];
+
+    function showNextField(nextFieldId) {
+      const nextField = document.getElementById(nextFieldId);
+      const label = nextField.previousElementSibling;
+      if (nextField && label) {
+        nextField.style.display = 'block';
+        label.style.display = 'block';
+      }
+    }
+
+    document.getElementById('form').addEventListener('submit', function(event) {
+      event.preventDefault();
+
+      const nome = document.getElementById("nome").value.trim();
+      const cpf = document.getElementById("cpf").value.trim();
+      const numero = document.getElementById("numero").value.trim();
+      const fantasia = document.getElementById("fantasia").value.trim();
+      const contato = document.getElementById("contato").value.trim();
+      const endereco = document.getElementById("endereco").value.trim();
+      const descricao = document.getElementById("descricao").value.trim();
+      const datahora = document.getElementById("datahora").value.trim();
+      const designacao = document.getElementById("designacao").value.trim();
+      const ip = document.getElementById("ip").value.trim();
+      const pop = document.getElementById("pop").value.trim();
+
+      const isDuplicate = savedTemplates.some((template) => {
+        return (
+          template.descricao === descricao &&
+          template.nome === nome &&
+          template.cpf === cpf &&
+          template.fantasia === fantasia &&
+          template.contato === contato &&
+          template.endereco === endereco &&
+          template.designacao === designacao &&
+          template.ip === ip &&
+          template.pop === pop
+        );
+      });
+
+      if (isDuplicate) {
+        document.getElementById('duplicateNotification').style.display = 'block';
+        setTimeout(() => {
+          document.getElementById('duplicateNotification').style.display = 'none';
+        }, 5000);
+        return;
+      }
+
+      const template = `
+        Nome de quem entrou em contato: ${nome}<br>
+        Cnpj/cpf: ${cpf}<br>
+        Cliente/Nº do chamado: ${numero}<br>
+        Nome Fantasia: ${fantasia}<br>
+        Contato: ${contato}<br>
+        Endereço: ${endereco}<br>
+        Descrição do chamado: ${descricao}<br>
+        Data e hora do evento: ${datahora}<br>
+        Designação: ${designacao}<br>
+        IP: ${ip}<br>
+        POP/Equipamento/Porta: ${pop}<br>
+      `;
+
+      const templateDiv = document.getElementById('template');
+      templateDiv.style.display = 'block';
+      templateDiv.innerHTML = template.trim();
+
+      saveTemplate({
+        nome,
+        cpf,
+        numero,
+        fantasia, 
+        contato,
+        endereco,
+        descricao,
+        datahora,
+        designacao,
+        ip,
+        pop,
+      });
+    });
+
+    function saveTemplate(chamado) {
+      savedTemplates.push(chamado);
+      const list = document.getElementById('template-list');
+      const listItem = document.createElement('li');
+      listItem.innerHTML = `
+        <strong>Nome de quem entrou em contato:</strong> ${chamado.nome}<br>
+        <strong>Cnpj/cpf:</strong> ${chamado.cpf}<br>
+        <strong>Cliente/Nº do chamado:</strong> ${chamado.numero}<br>
+        <strong>Nome Fantasia:</strong> ${chamado.fantasia}<br>
+        <strong>Contato:</strong> ${chamado.contato}<br>
+        <strong>Endereço:</strong> ${chamado.endereco}<br>
+        <strong>Descrição do chamado:</strong> ${chamado.descricao}<br>
+        <strong>Data e hora do evento:</strong> ${chamado.datahora}<br>
+        <strong>Designação:</strong> ${chamado.designacao}<br>
+        <strong>IP:</strong> ${chamado.ip}<br>
+        <strong>POP/Equipamento/Porta:</strong> ${chamado.pop}<br>
+      `;
+      list.appendChild(listItem);
+      document.getElementById('saved-templates').style.display = 'block';
+    }
+
+    function resetForm() {
+      document.getElementById('form').reset();
+      document.querySelectorAll('#form input').forEach(input => {
+        if (input.id === 'nome') {
+          input.style.display = 'block';
+          input.previousElementSibling.style.display = 'block';
+        } else {
+          input.style.display = 'none';
+          input.previousElementSibling.style.display = 'none';
+        }
+      });
+      document.getElementById('template').style.display = 'none';
+    }
+  </script>
+
+  <div class="footer">Created by: Victor Fernando</div>
+</body>
+</html>
